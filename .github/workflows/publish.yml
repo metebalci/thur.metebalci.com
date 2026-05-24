@@ -1,0 +1,112 @@
+name: publish
+
+# Build the apt/yum tree for a given channel from a metebalci/thur release's
+# artifacts, sign the indices, and sync the result to R2 (served at
+# pkg.thur.metebalci.com).
+#
+# Triggered manually (workflow_dispatch) or by an external dispatch event
+# (repository_dispatch with type "thur-artifacts-available", payload carrying
+# { channel, tag }) — wire the latter into metebalci/thur's release CI when
+# the dev-channel auto-publish path is wanted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Channel to publish to'
+        required: true
+        type: choice
+        options:
+          - stable
+          - dev
+      tag:
+        description: 'metebalci/thur release tag to pull artifacts from (e.g. v0.1.0)'
+        required: true
+        type: string
+  repository_dispatch:
+    types:
+      - thur-artifacts-available
+
+permissions:
+  contents: read
+
+env:
+  GPG_FINGERPRINT: E1FFA6E44D8AF56EBD17997C9B4E436AE1373A4B
+  R2_BUCKET: thur-pkg
+  # Debian/Ubuntu codenames the apt tree publishes suites for. Each codename
+  # gets its own dists/<codename>/ subtree pointing at the shared pool. Extend
+  # this list as new releases (e.g. Ubuntu 26.04 codename) are supported.
+  SUPPORTED_CODENAMES: 'bookworm trixie noble'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve inputs
+        id: inputs
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "channel=${{ github.event.client_payload.channel }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.event.client_payload.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=${{ inputs.channel }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            apt-utils createrepo-c gnupg rclone
+
+      - name: Configure rclone for R2
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
+          secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          acl = private
+          EOF
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_FINGERPRINT:6:" | gpg --import-ownertrust
+
+      - name: Download artifacts from metebalci/thur
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          gh release download "${{ steps.inputs.outputs.tag }}" \
+            --repo metebalci/thur \
+            --dir artifacts/ \
+            --pattern '*.deb' \
+            --pattern '*.rpm'
+          echo "Downloaded:"
+          ls -lh artifacts/
+
+      - name: Sync existing tree from R2
+        run: |
+          mkdir -p tree
+          rclone sync "r2:$R2_BUCKET/" tree/ --quiet || true
+
+      - name: Build and sign trees
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          scripts/publish.sh tree "${{ steps.inputs.outputs.channel }}" artifacts
+
+      - name: Sync tree to R2
+        run: |
+          rclone sync tree/ "r2:$R2_BUCKET/" --quiet
+          echo "Published ${{ steps.inputs.outputs.channel }} channel to r2:$R2_BUCKET/"

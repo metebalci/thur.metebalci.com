@@ -1,76 +1,114 @@
 # thur.metebalci.com
 
-Static site backing **https://thur.metebalci.com**, the package repository
-for [Thur VTL and Thur VSA](https://github.com/metebalci/thur).
+Source for **https://thur.metebalci.com** — the landing page and one-shot
+installer for [Thur VTL and Thur VSA](https://github.com/metebalci/thur).
 
-Served by Cloudflare Pages directly from this repo's `main` branch — every
-push redeploys the site. The custom domain `thur.metebalci.com` is wired
-in the Cloudflare Pages dashboard; no `CNAME` file in the repo (that's a
-GitHub Pages convention, not a Cloudflare one).
+Two domains, two roles:
 
-## Layout
+| Domain | Served by | Holds |
+|---|---|---|
+| `thur.metebalci.com` | Cloudflare Pages, from this repo's `main` | landing page, `install.sh`, `LICENSE`, `README` |
+| `pkg.thur.metebalci.com` | Cloudflare R2 bucket `thur-pkg` | apt + rpm trees, `pubkey.asc` |
+
+The two-domain split is forced by Cloudflare Pages' 25 MiB per-file cap —
+`.deb` / `.rpm` artifacts sit close enough to that limit that any future
+growth would push them over. R2 has no per-file limit and zero egress
+fees, so the package tree lives there. Pages keeps doing what it's good
+at: cheap CDN-fronted static landing.
+
+Every push to `main` redeploys the Pages site. The R2 tree is updated by
+the `publish` workflow defined in `.github/workflows/publish.yml`.
+
+## Channels
+
+Two channels, parallel trees, same URL shape:
+
+- **stable** — empty until the first tagged release of `metebalci/thur`,
+  then accumulates over time. Each release appends to the pool; apt
+  picks the latest matching its constraints.
+- **dev** — rolling. Replaced on every publish so it only ever holds
+  the latest commit's artifacts. Use this for "I want to track main."
+
+## Layout (under `pkg.thur.metebalci.com`)
 
 ```
-/                          landing page (index.html)
-/pubkey.asc                GPG public key used to sign all indices and packages
-/install.sh                one-shot installer that detects the OS and wires up apt or yum
-/deb/                      Debian/Ubuntu repository (.deb)
-  dists/<codename>/        one suite per supported codename
-                           (bookworm, bullseye, trixie, noble, jammy, focal)
-  pool/main/t/<package>/   shared .deb pool, referenced by every codename suite
-/rpm/                      RHEL/Rocky/Fedora repository (.rpm)
-  el<n>/<arch>/            per-distro-major, per-arch trees
-  fedora<n>/<arch>/
+/pubkey.asc                                signing key, public half
+/deb/<channel>/dists/<codename>/main/binary-amd64/{Release,Packages,Packages.gz,InRelease}
+/deb/<channel>/pool/main/t/{thurvtl,thurvsa}/*.deb
+/rpm/<channel>/x86_64/{repodata,*.rpm}
 ```
 
-The `.deb` files under `pool/` are byte-identical across codename suites —
-Thur builds with a glibc-floor strategy that produces one binary per arch
-that runs on every supported release. Codename suites exist so operators
-can pin per-release (e.g. "tested on bookworm") and so we have headroom
-to diverge later without changing the URL surface.
+apt suites are published for the codenames listed in `RELEASING.md` —
+currently `bookworm` (Debian 12), `trixie` (Debian 13), and `noble`
+(Ubuntu 24.04). The shared `pool/` is referenced by every suite —
+artifacts are bit-identical across releases thanks to Thur's
+glibc-floor build strategy.
+
+The rpm tree is one flat directory per channel (`/rpm/<channel>/x86_64/`).
+The same `.rpm` works on every supported distro (RHEL 9 / 10, SLES 15 /
+16, openSUSE Leap 15 / 16) because the binary is built against
+glibc 2.31 and statically vendored OpenSSL — there's no per-distro
+divergence to encode in the URL.
 
 ## Installing thur
 
-Once the repo is populated:
-
 ```bash
-# Debian / Ubuntu
-curl -fsSL https://thur.metebalci.com/pubkey.asc \
-  | sudo gpg --dearmor -o /usr/share/keyrings/thur.gpg
-echo "deb [signed-by=/usr/share/keyrings/thur.gpg] https://thur.metebalci.com/deb $(lsb_release -cs) main" \
-  | sudo tee /etc/apt/sources.list.d/thur.list
-sudo apt update && sudo apt install thurvtl thurvsa
-
-# RHEL / Rocky / Fedora
-sudo tee /etc/yum.repos.d/thur.repo <<'EOF'
-[thur]
-name=thur
-baseurl=https://thur.metebalci.com/rpm/el$releasever/$basearch
-gpgcheck=1
-gpgkey=https://thur.metebalci.com/pubkey.asc
-enabled=1
-EOF
-sudo dnf install thurvtl thurvsa
-```
-
-Or, as a single line on either family:
-
-```bash
+# stable
 curl -fsSL https://thur.metebalci.com/install.sh | sudo bash
+
+# dev
+curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=dev bash
 ```
 
-## How packages get here
+Manual equivalents are in `install.sh`. The script detects the distro
+family, fetches the signing key from `pkg.thur.metebalci.com/pubkey.asc`,
+and writes the right `sources.list.d` or `yum.repos.d` entry.
 
-The `.deb` and `.rpm` artifacts are produced by the release workflow in
-[metebalci/thur](https://github.com/metebalci/thur) and published as
-GitHub Release assets. A workflow in this repo picks those up on
-release-published events, regenerates the apt and yum index files,
-signs them with the key stored in this repo's Actions secrets, and
-commits the result. Pushing to `main` triggers the Cloudflare Pages
-deploy.
+## Publishing
 
-The signing **private** key is never in this repo. Only `pubkey.asc`
-(the public half) is committed.
+```
+.github/workflows/publish.yml   — entry point
+scripts/publish.sh              — builds apt + rpm trees, signs indices
+```
+
+Triggered manually via `workflow_dispatch` (inputs: channel, tag), or by
+a `repository_dispatch` event of type `thur-artifacts-available` carrying
+`{channel, tag}` in the payload. The workflow:
+
+1. Downloads release assets from `metebalci/thur` for the given tag
+   (`*.deb` and `*.rpm`).
+2. Pulls the existing tree from R2 (so we don't lose prior stable
+   releases).
+3. Runs `scripts/publish.sh` to drop new artifacts into the pool /
+   rpm dir, regenerate `Packages.gz` / `repomd.xml`, and sign
+   `Release` / `repomd.xml` with the package signing key.
+4. Syncs the result back to R2.
+
+**Dev channel auto-publish on every push to `metebalci/thur`** is not
+wired in this repo — it requires a small step in `metebalci/thur`'s
+release workflow (or a per-commit CI build) to fire the
+`repository_dispatch` event with the new tag. Until that's added,
+dev publishes are triggered manually via the Actions UI.
+
+### Required Actions secrets
+
+The workflow needs these to be set in this repo's
+**Settings → Secrets and variables → Actions**:
+
+| Secret | What it is |
+|---|---|
+| `GPG_PRIVATE_KEY` | armored private signing key (`gpg --armor --export-secret-keys <fingerprint>`) — stays encrypted by the passphrase below |
+| `GPG_PASSPHRASE` | passphrase for the signing key |
+| `R2_ACCESS_KEY_ID` | R2 API token access key (Cloudflare dashboard → R2 → Manage R2 API tokens) |
+| `R2_SECRET_ACCESS_KEY` | matching secret |
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+
+The signing key fingerprint itself is **not** a secret — it's hardcoded
+in `publish.yml` and republished in `RELEASING.md`. Rotation procedure:
+generate a new key, update the fingerprint in `publish.yml` and
+`RELEASING.md`, publish the new `pubkey.asc` via the next workflow run,
+leave the old public key on the keyserver so historical signatures
+keep verifying.
 
 ## License
 

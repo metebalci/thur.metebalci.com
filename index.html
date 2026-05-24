@@ -26,7 +26,9 @@ a { color: #0a58ca; }
 <h2>Source</h2>
 <p><a href="https://github.com/metebalci/thur">github.com/metebalci/thur</a> &middot; Apache 2.0</p>
 
-<h2>Packages</h2>
-<p>Coming soon: apt and yum repositories at <code>/deb</code> and <code>/rpm</code>.</p>
+<h2>Install</h2>
+<p>apt (Debian / Ubuntu) and yum (RHEL / Rocky / SLES) repositories are served at <code>pkg.thur.metebalci.com</code>. To wire up the <code>stable</code> channel on any supported distro:</p>
+<p><code>curl -fsSL https://thur.metebalci.com/install.sh | sudo bash</code></p>
+<p>Set <code>CHANNEL=dev</code> for the rolling development channel. Stable will be empty until the first tagged release.</p>
 </body>
 </html>
