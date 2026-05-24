@@ -11,11 +11,14 @@
 #   SUPPORTED_CODENAMES   space-separated apt suite codenames
 #                         (e.g. "bookworm trixie noble")
 #
-# Channel semantics:
-#   stable  — appends. Historical versions stay in the pool; apt-ftparchive
-#             emits all of them and apt picks the latest.
-#   dev     — replaces. Dev channel only ever holds the latest commit's
-#             artifacts; the channel subtree is wiped before rebuild.
+# Channels:
+#   stable    — GA releases only (1.0.0+). Manually triggered, rare.
+#   unstable  — every pre-GA tagged release (0.x, RCs, betas). Triggered by
+#               the notify-publish bridge in metebalci/thur on every release.
+#
+# Both channels accumulate. The shared pool retains every version ever
+# published into the channel; apt picks the latest matching the operator's
+# constraints, or operators pin to a specific version.
 #
 # Expected artifact filenames (from release/release.sh):
 #   thurvtl_<ver>-1_amd64.deb
@@ -26,7 +29,7 @@
 set -euo pipefail
 
 TREE="${1:?tree dir required}"
-CHANNEL="${2:?channel required (stable|dev)}"
+CHANNEL="${2:?channel required (stable|unstable)}"
 ARTIFACTS="${3:?artifacts dir required}"
 
 : "${GPG_FINGERPRINT:?must be set}"
@@ -34,16 +37,12 @@ ARTIFACTS="${3:?artifacts dir required}"
 : "${SUPPORTED_CODENAMES:?must be set}"
 
 case "$CHANNEL" in
-  stable|dev) ;;
-  *) echo "channel must be 'stable' or 'dev', got: $CHANNEL" >&2; exit 1 ;;
+  stable|unstable) ;;
+  *) echo "channel must be 'stable' or 'unstable', got: $CHANNEL" >&2; exit 1 ;;
 esac
 
 DEB_TREE="$TREE/deb/$CHANNEL"
 RPM_TREE="$TREE/rpm/$CHANNEL/x86_64"
-
-if [ "$CHANNEL" = "dev" ]; then
-  rm -rf "$DEB_TREE" "$RPM_TREE"
-fi
 
 mkdir -p "$DEB_TREE/pool/main" "$RPM_TREE"
 
@@ -104,8 +103,8 @@ done
 
 cp "$ARTIFACTS"/*.rpm "$RPM_TREE/"
 
-# --update reuses prior metadata when possible (faster); for a fresh tree
-# (e.g. dev channel after the wipe above) it just builds from scratch.
+# --update reuses prior metadata when possible (faster); on a fresh tree it
+# just builds from scratch.
 createrepo_c --update "$RPM_TREE"
 
 rm -f "$RPM_TREE/repodata/repomd.xml.asc"

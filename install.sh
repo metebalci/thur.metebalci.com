@@ -2,7 +2,7 @@
 # install.sh — wire up the thur apt or yum repository on this host.
 #
 #   curl -fsSL https://thur.metebalci.com/install.sh | sudo bash
-#   curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=dev bash
+#   curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=unstable bash
 #
 # Detects the distro family, installs the signing key under
 # /usr/share/keyrings (apt) or trusts it via gpgkey= (yum), and writes the
@@ -16,8 +16,8 @@ PKG_BASE="https://pkg.thur.metebalci.com"
 PUBKEY_URL="$PKG_BASE/pubkey.asc"
 
 case "$CHANNEL" in
-  stable|dev) ;;
-  *) echo "install.sh: CHANNEL must be 'stable' or 'dev' (got: $CHANNEL)" >&2; exit 1 ;;
+  stable|unstable) ;;
+  *) echo "install.sh: CHANNEL must be 'stable' or 'unstable' (got: $CHANNEL)" >&2; exit 1 ;;
 esac
 
 if [ "$(id -u)" -ne 0 ]; then

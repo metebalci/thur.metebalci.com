@@ -23,11 +23,16 @@ the `publish` workflow defined in `.github/workflows/publish.yml`.
 
 Two channels, parallel trees, same URL shape:
 
-- **stable** — empty until the first tagged release of `metebalci/thur`,
-  then accumulates over time. Each release appends to the pool; apt
-  picks the latest matching its constraints.
-- **dev** — rolling. Replaced on every publish so it only ever holds
-  the latest commit's artifacts. Use this for "I want to track main."
+- **stable** — GA releases only, 1.0.0+. Manually triggered via
+  `workflow_dispatch`; rare event. Empty until v1.0.0 ships.
+- **unstable** — every pre-GA tagged release (0.x, RCs, betas).
+  Auto-published on every release event in `metebalci/thur` via the
+  `notify-publish.yml` bridge there (when wired). This is where 0.x
+  operators install from today.
+
+Both channels accumulate — every version ever published stays in the
+pool, so operators can pin to a specific tag (`apt install thurvtl=0.2.0`
+or yum equivalent) instead of always taking the latest.
 
 ## Layout (under `pkg.thur.metebalci.com`)
 
@@ -53,11 +58,11 @@ divergence to encode in the URL.
 ## Installing thur
 
 ```bash
-# stable
+# stable (GA only, currently empty)
 curl -fsSL https://thur.metebalci.com/install.sh | sudo bash
 
-# dev
-curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=dev bash
+# unstable (all 0.x and pre-GA releases)
+curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=unstable bash
 ```
 
 Manual equivalents are in `install.sh`. The script detects the distro
@@ -84,11 +89,12 @@ a `repository_dispatch` event of type `thur-artifacts-available` carrying
    `Release` / `repomd.xml` with the package signing key.
 4. Syncs the result back to R2.
 
-**Dev channel auto-publish on every push to `metebalci/thur`** is not
-wired in this repo — it requires a small step in `metebalci/thur`'s
-release workflow (or a per-commit CI build) to fire the
-`repository_dispatch` event with the new tag. Until that's added,
-dev publishes are triggered manually via the Actions UI.
+**Unstable channel auto-publish on every release of `metebalci/thur`** is
+wired by a small `notify-publish.yml` workflow in `metebalci/thur` that
+listens for its own `release.published` event and fires
+`repository_dispatch` here with `channel=unstable`. Stable publishes
+are deliberately manual (GA cuts are rare ceremony — `workflow_dispatch`
+with channel `stable` is the right shape).
 
 ### Required Actions secrets
 

@@ -4,21 +4,21 @@ name: publish
 # artifacts, sign the indices, and sync the result to R2 (served at
 # pkg.thur.metebalci.com).
 #
-# Triggered manually (workflow_dispatch) or by an external dispatch event
-# (repository_dispatch with type "thur-artifacts-available", payload carrying
-# { channel, tag }) — wire the latter into metebalci/thur's release CI when
-# the dev-channel auto-publish path is wanted.
+# Triggered manually (workflow_dispatch — used for stable GA cuts) or by an
+# external dispatch event (repository_dispatch with type
+# "thur-artifacts-available", payload carrying { channel, tag } — fired by
+# the notify-publish.yml bridge in metebalci/thur for unstable releases).
 
 on:
   workflow_dispatch:
     inputs:
       channel:
-        description: 'Channel to publish to'
+        description: 'Channel to publish to (stable = GA only, 1.0.0+; unstable = everything else)'
         required: true
         type: choice
         options:
           - stable
-          - dev
+          - unstable
       tag:
         description: 'metebalci/thur release tag to pull artifacts from (e.g. v0.1.0)'
         required: true
