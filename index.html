@@ -2,16 +2,31 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>thur package repository</title>
+<title>Thur</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.5; color: #222; }
-code { background: #f3f3f3; padding: 0.1em 0.3em; border-radius: 3px; }
+body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.55; color: #222; }
+h1 { margin-bottom: 0.2rem; }
+.tagline { color: #666; margin-top: 0; }
+h2 { margin-top: 2rem; font-size: 1.1rem; }
+code { background: #f3f3f3; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.95em; }
+a { color: #0a58ca; }
 </style>
 </head>
 <body>
-<h1>thur package repository</h1>
-<p>This is the package repository for <a href="https://github.com/metebalci/thur">Thur VTL and Thur VSA</a>.</p>
-<p>Coming soon.</p>
+<h1>Thur</h1>
+<p class="tagline">Cloud-tiered storage targets in Rust.</p>
+
+<h2>Thur VTL</h2>
+<p>Virtual Tape Library. Presents an SMC-3 medium-changer with SSC-4 LTO-8 drives over iSCSI. Cartridges tier to S3, GCS, Azure, or local storage.</p>
+
+<h2>Thur VSA</h2>
+<p>Virtual Storage Appliance. Presents SBC-3 block volumes over iSCSI or NVMe/TCP, thin-provisioned, sharing the same content-addressed cloud chunk pool.</p>
+
+<h2>Source</h2>
+<p><a href="https://github.com/metebalci/thur">github.com/metebalci/thur</a> &middot; Apache 2.0</p>
+
+<h2>Packages</h2>
+<p>Coming soon: apt and yum repositories at <code>/deb</code> and <code>/rpm</code>.</p>
 </body>
 </html>
