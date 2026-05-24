@@ -40,8 +40,12 @@ env:
   R2_ENDPOINT_PREFIX: 'eu.'
   # Debian/Ubuntu codenames the apt tree publishes suites for. Each codename
   # gets its own dists/<codename>/ subtree pointing at the shared pool. Extend
-  # this list as new releases (e.g. Ubuntu 26.04 codename) are supported.
-  SUPPORTED_CODENAMES: 'bookworm trixie noble'
+  # this list as new releases are supported.
+  #   bookworm  — Debian 12
+  #   trixie    — Debian 13
+  #   noble     — Ubuntu 24.04 LTS
+  #   resolute  — Ubuntu 26.04 LTS (Resolute Raccoon, released 2026-04-23)
+  SUPPORTED_CODENAMES: 'bookworm trixie noble resolute'
 
 jobs:
   publish:
