@@ -23,16 +23,21 @@ the `publish` workflow defined in `.github/workflows/publish.yml`.
 
 Two channels, parallel trees, same URL shape:
 
-- **stable** — GA releases only, 1.0.0+. Manually triggered via
-  `workflow_dispatch`; rare event. Empty until v1.0.0 ships.
-- **unstable** — every pre-GA tagged release (0.x, RCs, betas).
-  Auto-published on every release event in `metebalci/thur` via the
-  `notify-publish.yml` bridge there (when wired). This is where 0.x
-  operators install from today.
+- **stable** — tagged releases without a pre-release suffix
+  (`vN.M.P`). Includes pre-1.0 releases; the channel guarantees build
+  and signing hygiene, not API stability. Operators on 0.x should pin
+  to specific minor versions if they can't tolerate the breaks SemVer
+  reserves the right to introduce before 1.0.0.
+- **unstable** — pre-release tagged versions
+  (`vN.M.P-alpha.X` / `-beta.X` / `-rc.X`) for testing forthcoming
+  releases.
 
-Both channels accumulate — every version ever published stays in the
-pool, so operators can pin to a specific tag (`apt install thurvtl=0.2.0`
-or yum equivalent) instead of always taking the latest.
+Both channels are auto-published by the `notify-publish.yml` bridge in
+`metebalci/thur` on every release event there — channel is routed off
+the tag string, not the GitHub UI's prerelease flag. Both channels
+accumulate: every version published stays in the pool, so operators
+can pin to a specific tag (`apt install thurvtl=0.2.0` or yum
+equivalent) instead of always taking the latest.
 
 ## Layout (under `pkg.thur.metebalci.com`)
 
@@ -58,10 +63,10 @@ divergence to encode in the URL.
 ## Installing thur
 
 ```bash
-# stable (GA only, currently empty)
+# stable (tagged releases without pre-release suffix)
 curl -fsSL https://thur.metebalci.com/install.sh | sudo bash
 
-# unstable (all 0.x and pre-GA releases)
+# unstable (pre-release tags — alpha/beta/rc)
 curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=unstable bash
 ```
 
@@ -89,12 +94,15 @@ a `repository_dispatch` event of type `thur-artifacts-available` carrying
    `Release` / `repomd.xml` with the package signing key.
 4. Syncs the result back to R2.
 
-**Unstable channel auto-publish on every release of `metebalci/thur`** is
-wired by a small `notify-publish.yml` workflow in `metebalci/thur` that
-listens for its own `release.published` event and fires
-`repository_dispatch` here with `channel=unstable`. Stable publishes
-are deliberately manual (GA cuts are rare ceremony — `workflow_dispatch`
-with channel `stable` is the right shape).
+**Auto-publish on every release of `metebalci/thur`** is wired by a small
+`notify-publish.yml` workflow in that repo. It inspects the tag string
+on each `release.published` event and fires `repository_dispatch` here
+with the routed channel: `vN.M.P` lands in `stable`,
+`vN.M.P-anything` lands in `unstable`. The maintainer never has to
+remember to flip a channel toggle — the tag is the truth.
+
+Manual publishes via `workflow_dispatch` are also available for
+republishes, backfills, or out-of-band testing.
 
 ### Required Actions secrets
 

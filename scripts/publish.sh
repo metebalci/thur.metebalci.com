@@ -12,9 +12,11 @@
 #                         (e.g. "bookworm trixie noble")
 #
 # Channels:
-#   stable    — GA releases only (1.0.0+). Manually triggered, rare.
-#   unstable  — every pre-GA tagged release (0.x, RCs, betas). Triggered by
-#               the notify-publish bridge in metebalci/thur on every release.
+#   stable    — tagged releases without a pre-release suffix (vN.M.P).
+#               Includes pre-1.0 releases; the channel guarantees build /
+#               signing hygiene, not API stability.
+#   unstable  — pre-release tagged versions (vN.M.P-alpha.X, -beta.X,
+#               -rc.X) for testing forthcoming releases.
 #
 # Both channels accumulate. The shared pool retains every version ever
 # published into the channel; apt picks the latest matching the operator's

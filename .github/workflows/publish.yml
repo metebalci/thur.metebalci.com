@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: 'Channel to publish to (stable = GA only, 1.0.0+; unstable = everything else)'
+        description: 'Channel (stable = no pre-release suffix; unstable = -alpha/-beta/-rc/...)'
         required: true
         type: choice
         options:

@@ -29,6 +29,8 @@ a { color: #0a58ca; }
 <h2>Install</h2>
 <p>apt (Debian / Ubuntu) and yum (RHEL / Rocky / SLES) repositories are served at <code>pkg.thur.metebalci.com</code>. To wire up the <code>stable</code> channel on any supported distro:</p>
 <p><code>curl -fsSL https://thur.metebalci.com/install.sh | sudo bash</code></p>
-<p>Set <code>CHANNEL=unstable</code> to install from the pre-GA channel (0.x releases, RCs, betas). The <code>stable</code> channel is reserved for GA (1.0.0+) and is empty until then.</p>
+<p>Or the <code>unstable</code> channel:</p>
+<p><code>curl -fsSL https://thur.metebalci.com/install.sh | sudo CHANNEL=unstable bash</code></p>
+<p>The <code>stable</code> channel holds tagged releases without a pre-release suffix, including pre-1.0 (0.x) builds &mdash; it guarantees build and signing hygiene, not API stability. The <code>unstable</code> channel holds alpha / beta / rc tags and any per-commit development builds.</p>
 </body>
 </html>
