@@ -33,6 +33,11 @@ permissions:
 env:
   GPG_FINGERPRINT: E1FFA6E44D8AF56EBD17997C9B4E436AE1373A4B
   R2_BUCKET: thur-pkg
+  # Cloudflare R2 endpoint subdomain segment between the account ID and
+  # r2.cloudflarestorage.com. Default jurisdiction: empty. EU: 'eu.'.
+  # FedRAMP: 'fedramp.'. The R2 token UI's "Use Token" panel shows the
+  # exact endpoint to use — copy the dotted segment from there.
+  R2_ENDPOINT_PREFIX: 'eu.'
   # Debian/Ubuntu codenames the apt tree publishes suites for. Each codename
   # gets its own dists/<codename>/ subtree pointing at the shared pool. Extend
   # this list as new releases (e.g. Ubuntu 26.04 codename) are supported.
@@ -71,7 +76,7 @@ jobs:
           provider = Cloudflare
           access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
           secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.${R2_ENDPOINT_PREFIX}r2.cloudflarestorage.com
           region = auto
           EOF
           # Quick probe so a misconfigured token fails fast with a useful error
