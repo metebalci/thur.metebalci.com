@@ -72,8 +72,11 @@ jobs:
           access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
           secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
           endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          acl = private
+          region = auto
           EOF
+          # Quick probe so a misconfigured token fails fast with a useful error
+          # instead of getting buried after the build runs for 30+ seconds.
+          rclone lsd "r2:$R2_BUCKET/" 2>&1 | head -20 || true
 
       - name: Import GPG key
         env:
