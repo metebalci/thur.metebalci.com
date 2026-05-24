@@ -103,7 +103,10 @@ done
 
 # ----- rpm tree ------------------------------------------------------------
 
-cp "$ARTIFACTS"/*.rpm "$RPM_TREE/"
+for rpm in "$ARTIFACTS"/*.rpm; do
+  [ -e "$rpm" ] || continue
+  cp "$rpm" "$RPM_TREE/"
+done
 
 # --update reuses prior metadata when possible (faster); on a fresh tree it
 # just builds from scratch.

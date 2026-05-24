@@ -20,7 +20,7 @@ on:
           - stable
           - unstable
       tag:
-        description: 'metebalci/thur release tag to pull artifacts from (e.g. v0.1.0)'
+        description: 'metebalci/thur release tag (e.g. v0.1.0). Use "seed" for one-time bootstrap: generates empty signed indices so install.sh works before any release exists.'
         required: true
         type: string
   repository_dispatch:
@@ -83,6 +83,7 @@ jobs:
           echo "$GPG_FINGERPRINT:6:" | gpg --import-ownertrust
 
       - name: Download artifacts from metebalci/thur
+        if: steps.inputs.outputs.tag != 'seed'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -94,6 +95,12 @@ jobs:
             --pattern '*.rpm'
           echo "Downloaded:"
           ls -lh artifacts/
+
+      - name: Prepare seed run (empty artifacts dir)
+        if: steps.inputs.outputs.tag == 'seed'
+        run: |
+          mkdir -p artifacts
+          echo "Seed run: skipping release download, will generate empty signed indices."
 
       - name: Sync existing tree from R2
         run: |
