@@ -1,0 +1,88 @@
+name: unpublish
+
+# Remove a specific version of thurvtl + thurvsa from one channel's apt
+# and rpm trees, regenerate signed indices, sync the result to R2.
+#
+# Channels are normally append-only — this workflow is the escape hatch
+# for the rare case where a bad release needs to come back out (broken
+# build, leaked secret, license issue). Use sparingly: once a version is
+# removed, any operator who pinned to it will see install failures.
+#
+# Manual-only by design: there's no automatic-removal pathway from
+# metebalci/thur; pulling a release there does NOT pull it from here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Channel to remove the version from'
+        required: true
+        type: choice
+        options:
+          - stable
+          - unstable
+      version:
+        description: 'Upstream version as it appears in pool filenames — e.g. 0.1.0, 0.1.0-rc.2, 0.1.0-dev.4. No "v" prefix, no "-1" packaging suffix.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  GPG_FINGERPRINT: E1FFA6E44D8AF56EBD17997C9B4E436AE1373A4B
+  R2_BUCKET: thur-pkg
+  R2_ENDPOINT_PREFIX: 'eu.'
+  SUPPORTED_CODENAMES: 'bookworm trixie noble resolute'
+
+jobs:
+  unpublish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            apt-utils createrepo-c gnupg rclone
+
+      - name: Configure rclone for R2
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
+          secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.${R2_ENDPOINT_PREFIX}r2.cloudflarestorage.com
+          region = auto
+          EOF
+          rclone lsd "r2:$R2_BUCKET/" 2>&1 | head -20 || true
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_FINGERPRINT:6:" | gpg --import-ownertrust
+
+      - name: Sync existing tree from R2
+        run: |
+          mkdir -p tree
+          rclone sync "r2:$R2_BUCKET/" tree/ --quiet
+
+      - name: Remove version and re-sign
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          scripts/unpublish.sh tree "${{ inputs.channel }}" "${{ inputs.version }}"
+
+      - name: Sync tree to R2
+        run: |
+          # --delete handled by sync (rclone sync mirrors source state),
+          # so the removed .deb/.rpm files disappear from R2 on this push.
+          rclone sync tree/ "r2:$R2_BUCKET/" --quiet
+          echo "Unpublished ${{ inputs.version }} from ${{ inputs.channel }} channel on r2:$R2_BUCKET/"

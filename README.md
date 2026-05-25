@@ -104,6 +104,23 @@ remember to flip a channel toggle — the tag is the truth.
 Manual publishes via `workflow_dispatch` are also available for
 republishes, backfills, or out-of-band testing.
 
+### Unpublishing a version
+
+```
+.github/workflows/unpublish.yml — entry point (workflow_dispatch only)
+scripts/unpublish.sh            — removes a version, regenerates + re-signs indices
+```
+
+Both channels are normally append-only. The `unpublish` workflow is the
+escape hatch when a release needs to come back out (broken build, leaked
+secret, license issue). Inputs are `channel` and `version` (e.g. `0.1.0`
+or `0.1.0-rc.2` — the version exactly as it appears in pool filenames,
+no `v` prefix and no `-1` packaging suffix). It removes the matching
+`.deb` and `.rpm` files for both `thurvtl` and `thurvsa`, rebuilds the
+apt + rpm indices from the remaining pool, re-signs, and syncs to R2.
+Use sparingly — operators who pinned to the removed version will see
+install failures until they un-pin.
+
 ### Required Actions secrets
 
 The workflow needs these to be set in this repo's

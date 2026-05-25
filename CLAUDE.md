@@ -40,6 +40,10 @@ Workflow steps:
 4. **Sync existing tree from R2 first**, then run `publish.sh` to merge new artifacts in, then sync back. This is what makes channels accumulate — skip the pre-sync and you delete history.
 5. Sign indices with the GPG key.
 
+### Unpublishing a version
+
+`.github/workflows/unpublish.yml` → `scripts/unpublish.sh`. `workflow_dispatch`-only, inputs `channel` + `version` (upstream version as it appears in pool filenames — `0.1.0`, `0.1.0-rc.2`, `0.1.0-dev.4`, no `v` prefix, no `-1` packaging suffix). Removes `thurvtl_<version>-1_amd64.deb`, `thurvsa_<version>-1_amd64.deb`, and the matching `.rpm`s, regenerates apt and rpm indices, re-signs, syncs to R2 (R2 sync mirrors source state, so the deleted artifacts vanish). The "channels are append-only" property is the rule; this workflow is the explicit escape hatch — operators who pinned to the removed version will fail to install until they un-pin.
+
 ### `seed` tag
 
 Passing `tag: seed` via `workflow_dispatch` skips the artifact download and produces an empty-but-signed tree. Used once at bootstrap so `install.sh` can wire up `sources.list.d` entries that point at a valid (if empty) repo before any release exists. Don't use this against an already-populated tree unless you want signed but empty indices.
