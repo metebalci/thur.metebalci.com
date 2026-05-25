@@ -7,7 +7,6 @@
 <style>
 body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.55; color: #222; }
 h1 { margin-bottom: 0.2rem; }
-.tagline { color: #666; margin-top: 0; }
 h2 { margin-top: 2rem; font-size: 1.1rem; }
 code { background: #f3f3f3; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.95em; }
 a { color: #0a58ca; }
@@ -15,15 +14,12 @@ a { color: #0a58ca; }
 </head>
 <body>
 <h1>Thur VTL and Thur VSA</h1>
-<p class="tagline">Spec-conformant storage targets.</p>
 
-<p>Two sibling products that present standard storage devices to the host. Both are thin-provisioned (addressable capacity is declared, not reserved), deduplicated against a shared BLAKE3-keyed chunk pool, and backed by an object store (S3, GCS, Azure, or any S3-compatible &mdash; MinIO, Ceph RGW, AIStore, Wasabi, &hellip;) or a local filesystem, fronted by a small refcount-evicted on-host cache.</p>
+<p><strong>Thur VTL</strong> &mdash; a Virtual Tape Library &mdash; presents a spec-conformant SMC-3 medium changer and SSC-4 LTO-8 drive surface over iSCSI: an ordinary tape library to the backup software, no proprietary agent required.</p>
 
-<h2>Thur VTL</h2>
-<p>Virtual Tape Library. Presents a spec-conformant SMC-3 medium changer and SSC-4 LTO-8 drive surface over iSCSI &mdash; an ordinary tape library to the backup software, no proprietary agent required.</p>
+<p><strong>Thur VSA</strong> &mdash; a Virtual Storage Appliance &mdash; presents any number of spec-conformant SBC-3 direct-access LUNs over iSCSI or NVMe/TCP: an ordinary block device to VMware, Hyper-V, Linux, no proprietary agent required.</p>
 
-<h2>Thur VSA</h2>
-<p>Virtual Storage Appliance. Presents any number of spec-conformant SBC-3 direct-access LUNs over iSCSI or NVMe/TCP &mdash; an ordinary block device to VMware, Hyper-V, Linux, no proprietary agent required.</p>
+<p>Both are thin-provisioned (addressable capacity is declared, not reserved), deduplicated against a shared BLAKE3-keyed chunk pool, and backed by an object store (S3, GCS, Azure, or any S3-compatible &mdash; MinIO, Ceph RGW, AIStore, Wasabi, &hellip;) or a local filesystem, fronted by a small refcount-evicted on-host cache.</p>
 
 <h2>Install</h2>
 <p>apt (Debian / Ubuntu) and yum (RHEL / Rocky / SLES) repositories are served at <code>pkg.thur.metebalci.com</code>. To wire up the <code>stable</code> channel on any supported distro:</p>
