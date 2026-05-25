@@ -22,7 +22,7 @@ on:
           - stable
           - unstable
       version:
-        description: 'Upstream version as it appears in pool filenames — e.g. 0.1.0, 0.1.0-rc.2, 0.1.0-dev.4. No "v" prefix, no "-1" packaging suffix.'
+        description: 'Upstream Git tag (with or without "v") — e.g. 0.1.0, 0.1.0-rc.2, 0.1.0-dev.4. Script translates to the matching .deb Version and .rpm ver/rel.'
         required: true
         type: string
 

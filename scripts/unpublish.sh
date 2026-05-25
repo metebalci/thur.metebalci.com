@@ -11,14 +11,19 @@
 # Usage:
 #   scripts/unpublish.sh <tree-dir> <channel> <version>
 #
-# <version> is the upstream version string exactly as it appears in the
-# pool filenames — the part between the package name and the trailing
-# '-1' packaging revision. No 'v' prefix.
-#   release version:     0.1.0
-#   pre-release version: 0.1.0-alpha.1, 0.1.0-rc.2, 0.1.0-dev.4
-# Filenames matched:
-#   thurvtl_<version>-1_amd64.deb / thurvsa_<version>-1_amd64.deb
-#   thurvtl-<version>-1.x86_64.rpm / thurvsa-<version>-1.x86_64.rpm
+# <version> is the upstream Git tag (with or without the leading 'v'):
+#   release:     0.1.0
+#   pre-release: 0.1.0-alpha.1, 0.1.0-rc.2, 0.1.0-dev.4
+#
+# Tag → ecosystem mapping (matches metebalci/thur's release.sh output):
+#   .deb Version field:  0.1.0     -> 0.1.0-1
+#                        0.1.0-X   -> 0.1.0~X-1     ('-' -> '~')
+#   .rpm ver / rel:      0.1.0     -> ver=0.1.0, rel=1
+#                        0.1.0-X   -> ver=0.1.0, rel=0.X
+#
+# Actual filenames are looked up via the published indices
+# (Packages, repodata/*-primary.xml.gz), so the script stays correct
+# even if upstream changes its filename casing or '-'/'.' substitutions.
 #
 # Env required (same as publish.sh):
 #   GPG_FINGERPRINT       signing key fingerprint
@@ -40,12 +45,23 @@ case "$CHANNEL" in
   *) echo "channel must be 'stable' or 'unstable', got: $CHANNEL" >&2; exit 1 ;;
 esac
 
-# Catch the common git-tag copy-paste mistake. Everything else is left to
-# the "no files matched" check below — typos surface there with the exact
-# filenames we looked for.
-case "$VERSION" in
-  v*) echo "version must not have a 'v' prefix, got: $VERSION" >&2; exit 1 ;;
-esac
+# Accept the git tag with or without leading 'v'.
+VERSION="${VERSION#v}"
+
+# Translate the tag into the canonical .deb Version field and .rpm
+# ver/rel pair used by metebalci/thur's release.sh.
+deb_version="${VERSION/-/~}-1"
+if [[ "$VERSION" == *-* ]]; then
+  rpm_ver="${VERSION%%-*}"
+  rpm_rel="0.${VERSION#*-}"
+else
+  rpm_ver="$VERSION"
+  rpm_rel="1"
+fi
+
+echo "Resolving version '$VERSION' in channel '$CHANNEL':"
+echo "  .deb Version: $deb_version"
+echo "  .rpm ver=$rpm_ver rel=$rpm_rel"
 
 DEB_TREE="$TREE/deb/$CHANNEL"
 RPM_TREE="$TREE/rpm/$CHANNEL/x86_64"
@@ -59,33 +75,69 @@ if [ ! -d "$DEB_TREE" ] && [ ! -d "$RPM_TREE" ]; then
 fi
 
 removed_any=0
-searched=""
 
-for pkg in thurvtl thurvsa; do
-  letter="${pkg:0:1}"
-  f="$DEB_TREE/pool/main/$letter/$pkg/${pkg}_${VERSION}-1_amd64.deb"
-  searched="${searched}  ${f}"$'\n'
-  if [ -f "$f" ]; then
-    rm -f "$f"
-    echo "removed: $f"
-    removed_any=1
+# .deb: walk one codename's Packages file (the shared pool means every
+# codename's Packages stanzas point at the same pool/ paths). Match by
+# the canonical Debian Version, take the file from the Filename: field.
+if [ -d "$DEB_TREE" ]; then
+  pkgs_file=""
+  for codename in $SUPPORTED_CODENAMES; do
+    candidate="$DEB_TREE/dists/$codename/main/binary-amd64/Packages"
+    if [ -f "$candidate" ]; then
+      pkgs_file="$candidate"
+      break
+    fi
+  done
+  if [ -n "$pkgs_file" ]; then
+    while IFS= read -r relpath; do
+      [ -z "$relpath" ] && continue
+      f="$DEB_TREE/$relpath"
+      if [ -f "$f" ]; then
+        rm -f "$f"
+        echo "removed: $f"
+        removed_any=1
+      fi
+    done < <(awk -v want="$deb_version" '
+      /^Version: / {v=$2}
+      /^Filename: / {if (v==want) print $2; v=""}
+    ' "$pkgs_file")
   fi
-done
+fi
 
-for pkg in thurvtl thurvsa; do
-  f="$RPM_TREE/${pkg}-${VERSION}-1.x86_64.rpm"
-  searched="${searched}  ${f}"$'\n'
-  if [ -f "$f" ]; then
-    rm -f "$f"
-    echo "removed: $f"
-    removed_any=1
+# .rpm: walk primary.xml.gz. The top-level <version> in each <package>
+# stanza precedes that package's <location href=>; <rpm:entry> elements
+# in provides/requires don't match the line anchors.
+if [ -d "$RPM_TREE" ]; then
+  primary=$(ls "$RPM_TREE"/repodata/*-primary.xml.gz 2>/dev/null | head -1)
+  if [ -n "$primary" ]; then
+    while IFS= read -r relpath; do
+      [ -z "$relpath" ] && continue
+      f="$RPM_TREE/$relpath"
+      if [ -f "$f" ]; then
+        rm -f "$f"
+        echo "removed: $f"
+        removed_any=1
+      fi
+    done < <(gunzip -c "$primary" | awk -v wver="$rpm_ver" -v wrel="$rpm_rel" '
+      /^[[:space:]]*<version / {
+        v=""; r=""
+        if (match($0, /ver="[^"]*"/)) v=substr($0, RSTART+5, RLENGTH-6)
+        if (match($0, /rel="[^"]*"/)) r=substr($0, RSTART+5, RLENGTH-6)
+      }
+      /^[[:space:]]*<location / {
+        if (v==wver && r==wrel && match($0, /href="[^"]*"/)) {
+          print substr($0, RSTART+6, RLENGTH-7)
+        }
+      }
+    ')
   fi
-done
+fi
 
 if [ "$removed_any" -eq 0 ]; then
-  echo "unpublish.sh: no files matched version '$VERSION' in channel '$CHANNEL'." >&2
+  echo "unpublish.sh: nothing matched in channel '$CHANNEL'." >&2
   echo "             looked for:" >&2
-  printf '%s' "$searched" >&2
+  echo "               .deb stanzas with Version=$deb_version" >&2
+  echo "               .rpm packages with ver=$rpm_ver rel=$rpm_rel" >&2
   exit 1
 fi
 

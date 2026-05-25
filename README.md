@@ -113,13 +113,16 @@ scripts/unpublish.sh            — removes a version, regenerates + re-signs in
 
 Both channels are normally append-only. The `unpublish` workflow is the
 escape hatch when a release needs to come back out (broken build, leaked
-secret, license issue). Inputs are `channel` and `version` (e.g. `0.1.0`
-or `0.1.0-rc.2` — the version exactly as it appears in pool filenames,
-no `v` prefix and no `-1` packaging suffix). It removes the matching
-`.deb` and `.rpm` files for both `thurvtl` and `thurvsa`, rebuilds the
-apt + rpm indices from the remaining pool, re-signs, and syncs to R2.
-Use sparingly — operators who pinned to the removed version will see
-install failures until they un-pin.
+secret, license issue). Inputs are `channel` and `version` — the
+upstream Git tag, with or without a leading `v` (e.g. `0.1.0`,
+`0.1.0-rc.2`, `0.1.0-dev.4`). The script translates the tag into the
+canonical .deb Version field and .rpm ver/rel pair, then resolves the
+actual filenames to delete by reading the published `Packages` and
+`repodata/*-primary.xml.gz` indices — so it stays correct even if
+release.sh's filename conventions drift. It then removes the matched
+`.deb` and `.rpm` files, rebuilds apt + rpm indices, re-signs, and
+syncs to R2. Use sparingly — operators who pinned to the removed
+version will see install failures until they un-pin.
 
 ### Required Actions secrets
 
