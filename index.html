@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Thur</title>
+<title>Thur VTL and Thur VSA</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.55; color: #222; }
@@ -14,14 +14,16 @@ a { color: #0a58ca; }
 </style>
 </head>
 <body>
-<h1>Thur</h1>
-<p class="tagline">Cloud-tiered storage targets in Rust.</p>
+<h1>Thur VTL and Thur VSA</h1>
+<p class="tagline">Spec-conformant storage targets.</p>
+
+<p>Two sibling products that present standard storage devices to the host. Both are thin-provisioned (addressable capacity is declared, not reserved), deduplicated against a shared BLAKE3-keyed chunk pool, and backed by an object store (S3, GCS, Azure, or any S3-compatible &mdash; MinIO, Ceph RGW, AIStore, Wasabi, &hellip;) or a local filesystem, fronted by a small refcount-evicted on-host cache.</p>
 
 <h2>Thur VTL</h2>
-<p>Virtual Tape Library. Presents an SMC-3 medium-changer with SSC-4 LTO-8 drives over iSCSI. Cartridges tier to S3, GCS, Azure, or local storage.</p>
+<p>Virtual Tape Library. Presents a spec-conformant SMC-3 medium changer and SSC-4 LTO-8 drive surface over iSCSI &mdash; an ordinary tape library to the backup software, no proprietary agent required.</p>
 
 <h2>Thur VSA</h2>
-<p>Virtual Storage Appliance. Presents SBC-3 block volumes over iSCSI or NVMe/TCP, thin-provisioned, sharing the same content-addressed cloud chunk pool.</p>
+<p>Virtual Storage Appliance. Presents any number of spec-conformant SBC-3 direct-access LUNs over iSCSI or NVMe/TCP &mdash; an ordinary block device to VMware, Hyper-V, Linux, no proprietary agent required.</p>
 
 <h2>Install</h2>
 <p>apt (Debian / Ubuntu) and yum (RHEL / Rocky / SLES) repositories are served at <code>pkg.thur.metebalci.com</code>. To wire up the <code>stable</code> channel on any supported distro:</p>
