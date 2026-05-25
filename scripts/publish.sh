@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#
+# Copyright (c) 2026 Mete Balci
+# SPDX-License-Identifier: Apache-2.0
+#
 # publish.sh — build apt + rpm trees for one channel from a directory of
 # release artifacts, sign the indices, drop the public key at tree root.
 #

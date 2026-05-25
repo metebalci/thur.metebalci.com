@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#
+# Copyright (c) 2026 Mete Balci
+# SPDX-License-Identifier: Apache-2.0
+#
 # install.sh — wire up the thur apt or yum repository on this host.
 #
 #   curl -fsSL https://thur.metebalci.com/install.sh | sudo bash

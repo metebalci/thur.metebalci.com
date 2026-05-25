@@ -1,0 +1,6 @@
+# gitleaks configuration. Extends the upstream default ruleset. The
+# pre-commit hook (.githooks/pre-commit) picks this up automatically
+# from the repo root.
+
+[extend]
+useDefault = true
