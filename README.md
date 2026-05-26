@@ -107,22 +107,35 @@ republishes, backfills, or out-of-band testing.
 ### Unpublishing a version
 
 ```
-.github/workflows/unpublish.yml — entry point (workflow_dispatch only)
+.github/workflows/unpublish.yml — entry point (workflow_dispatch + repository_dispatch)
 scripts/unpublish.sh            — removes a version, regenerates + re-signs indices
 ```
 
 Both channels are normally append-only. The `unpublish` workflow is the
 escape hatch when a release needs to come back out (broken build, leaked
-secret, license issue). Inputs are `channel` and `version` — the
-upstream Git tag, with or without a leading `v` (e.g. `0.1.0`,
-`0.1.0-rc.2`, `0.1.0-dev.4`). The script translates the tag into the
-canonical .deb Version field and .rpm ver/rel pair, then resolves the
-actual filenames to delete by reading the published `Packages` and
-`repodata/*-primary.xml.gz` indices — so it stays correct even if
-release.sh's filename conventions drift. It then removes the matched
-`.deb` and `.rpm` files, rebuilds apt + rpm indices, re-signs, and
-syncs to R2. Use sparingly — operators who pinned to the removed
-version will see install failures until they un-pin.
+secret, license issue). Two trigger paths:
+
+- **Auto** — `metebalci/thur`'s `notify-unpublish.yml` bridge fires a
+  `thur-artifacts-unpublish` repository_dispatch on `release: deleted`
+  upstream. Tag deletion alone is intentionally not a recall signal —
+  a stray `git push --delete` shouldn't be able to yank a public
+  release. Note that GitHub runs the bridge against the workflow file
+  as it exists on the *release tag's commit*, not on `main` HEAD, so
+  releases cut before the bridge existed won't trigger auto-recall;
+  use the manual path for those.
+- **Manual** — `workflow_dispatch` from this repo's Actions tab.
+  Inputs are `channel` and `version` — the upstream Git tag, with or
+  without a leading `v` (e.g. `0.1.0`, `0.1.0-rc.2`, `0.1.0-dev.4`).
+
+Both paths converge on `scripts/unpublish.sh`, which translates the tag
+into the canonical .deb Version field and .rpm ver/rel pair, then
+resolves the actual filenames to delete by reading the published
+`Packages` and `repodata/*-primary.xml.gz` indices — so it stays
+correct even if release.sh's filename conventions drift. It then
+removes the matched `.deb` and `.rpm` files, rebuilds apt + rpm
+indices, re-signs, and syncs to R2. Use sparingly — operators who
+pinned to the removed version will see install failures until they
+un-pin.
 
 ### Required Actions secrets
 
