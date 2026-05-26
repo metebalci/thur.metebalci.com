@@ -8,8 +8,11 @@ name: unpublish
 # build, leaked secret, license issue). Use sparingly: once a version is
 # removed, any operator who pinned to it will see install failures.
 #
-# Manual-only by design: there's no automatic-removal pathway from
-# metebalci/thur; pulling a release there does NOT pull it from here.
+# Triggered two ways:
+#   workflow_dispatch — manual recall (operator picks channel + version).
+#   repository_dispatch (type: thur-artifacts-unpublish) — auto-fired by
+#     metebalci/thur's notify-unpublish.yml when a release or tag is
+#     deleted upstream. Payload: client_payload.channel + client_payload.tag.
 
 on:
   workflow_dispatch:
@@ -25,6 +28,8 @@ on:
         description: 'Upstream Git tag (with or without "v") — e.g. 0.1.0, 0.1.0-rc.2, 0.1.0-dev.4. Script translates to the matching .deb Version and .rpm ver/rel.'
         required: true
         type: string
+  repository_dispatch:
+    types: [thur-artifacts-unpublish]
 
 permissions:
   contents: read
@@ -39,6 +44,30 @@ jobs:
   unpublish:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve channel + version from trigger
+        id: inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_CHANNEL: ${{ inputs.channel }}
+          MANUAL_VERSION: ${{ inputs.version }}
+          DISPATCH_CHANNEL: ${{ github.event.client_payload.channel }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            CHANNEL="$MANUAL_CHANNEL"
+            VERSION="$MANUAL_VERSION"
+          else
+            CHANNEL="$DISPATCH_CHANNEL"
+            VERSION="$DISPATCH_TAG"
+          fi
+          if [ -z "$CHANNEL" ] || [ -z "$VERSION" ]; then
+            echo "Missing channel or version (event=$EVENT_NAME)" >&2
+            exit 1
+          fi
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved: channel=$CHANNEL version=$VERSION (event=$EVENT_NAME)"
+
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -78,11 +107,11 @@ jobs:
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          scripts/unpublish.sh tree "${{ inputs.channel }}" "${{ inputs.version }}"
+          scripts/unpublish.sh tree "${{ steps.inputs.outputs.channel }}" "${{ steps.inputs.outputs.version }}"
 
       - name: Sync tree to R2
         run: |
           # --delete handled by sync (rclone sync mirrors source state),
           # so the removed .deb/.rpm files disappear from R2 on this push.
           rclone sync tree/ "r2:$R2_BUCKET/" --quiet
-          echo "Unpublished ${{ inputs.version }} from ${{ inputs.channel }} channel on r2:$R2_BUCKET/"
+          echo "Unpublished ${{ steps.inputs.outputs.version }} from ${{ steps.inputs.outputs.channel }} channel on r2:$R2_BUCKET/"
